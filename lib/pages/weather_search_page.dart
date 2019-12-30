@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_states_rebuilder_tutorial/data/model/weather.dart';
+import 'package:flutter_states_rebuilder_tutorial/data/weather_repository.dart';
+import 'package:flutter_states_rebuilder_tutorial/state/weather_store.dart';
+import 'package:states_rebuilder/states_rebuilder.dart';
 
 class WeatherSearchPage extends StatefulWidget {
   @override
@@ -16,8 +19,17 @@ class _WeatherSearchPageState extends State<WeatherSearchPage> {
       body: Container(
         padding: EdgeInsets.symmetric(vertical: 16),
         alignment: Alignment.center,
-        // TODO: Implement with states_rebuilder
-        child: buildInitialInput(),
+        child: StateBuilder<WeatherStore>(
+          models: [Injector.getAsReactive<WeatherStore>()],
+          builder: (_, reactiveModel) {
+            return reactiveModel.whenConnectionState(
+              onIdle: () => buildInitialInput(),
+              onWaiting: () => buildLoading(),
+              onData: (store) => buildColumnWithData(store.weather),
+              onError: (_) => buildInitialInput(),
+            );
+          },
+        ),
       ),
     );
   }
@@ -74,6 +86,20 @@ class CityInputField extends StatelessWidget {
   }
 
   void submitCityName(BuildContext context, String cityName) {
-    // TODO: Get weather for the city
+    final reactiveModel = Injector.getAsReactive<WeatherStore>();
+    reactiveModel.setState(
+      (store) => store.getWeather(cityName),
+      onError: (context, error) {
+        if (error is NetworkError) {
+          Scaffold.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Couldn't fetch weather. Is the device online?"),
+            ),
+          );
+        } else {
+          throw error;
+        }
+      },
+    );
   }
 }
